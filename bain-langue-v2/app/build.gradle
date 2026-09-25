@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'mg.appmada.baindefrancais'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'mg.appmada.baindefrancais'
+        minSdk 23
+        targetSdk 35
+        versionCode 20
+        versionName '2.0.0'
+    }
+
+    buildTypes {
+        debug {
+            debuggable false
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
