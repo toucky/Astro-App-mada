@@ -5,11 +5,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'mg.appmada.baindefrancais.user2'
+        applicationId 'mg.appmada.baindefrancais.user4'
         minSdk 23
         targetSdk 35
-        versionCode 21
-        versionName '2.0.1'
+        versionCode 23
+        versionName '2.1.1'
     }
 
     buildTypes {
