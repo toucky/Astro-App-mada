@@ -49,9 +49,8 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-BainFrancais/2.2.1");
+        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-BainFrancais/2.2.4");
 
-        // Native bridge: the microphone no longer depends on WebView getUserMedia().
         webView.addJavascriptInterface(nativeMic, "AndroidMic");
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
@@ -71,8 +70,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Keep WebView permission support as a fallback for older code, but the main
-        // push-to-talk path uses AndroidMic directly.
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -103,7 +100,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // The microphone is the main feature, so request Android permission once at startup.
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             loadApp();
         } else {
@@ -188,11 +184,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public synchronized int amplitude() {
             if (recorder == null) return 0;
-            try {
-                return recorder.getMaxAmplitude();
-            } catch (Exception e) {
-                return 0;
-            }
+            try { return recorder.getMaxAmplitude(); }
+            catch (Exception e) { return 0; }
         }
 
         @JavascriptInterface
