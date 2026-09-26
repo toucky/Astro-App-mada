@@ -3,7 +3,6 @@
   if (window.__FRANCAIS_PRATIQUE_230__) return;
   window.__FRANCAIS_PRATIQUE_230__ = true;
 
-  // Identité visuelle visible dans l'app.
   try {
     document.title = 'Français Pratique';
     const brand = document.querySelector('.brand b');
@@ -101,7 +100,6 @@
     setBusy(true);
     mic.textContent = '⏳';
 
-    // Le débit est mis à jour en parallèle : il ne ralentit plus l'affichage du texte.
     const billingPromise = api('bain_speaking_charge', {
       sessionId: state.sessionId,
       seconds: Math.max(1, Math.min(300, Math.ceil(speechSeconds)))
@@ -121,34 +119,43 @@
       const transcript = String(t.transcript || '').trim();
       if (!transcript) throw new Error('Phrase vide');
 
-      // Le texte est montré dès que la transcription revient, sans attendre le coach ni la voix.
       addMsg('me', transcript);
-      const ms = Math.round(performance.now() - t0);
-      status(`✓ Texte reconnu · ${Math.max(1, (ms / 1000)).toFixed(1)} s · réponse en cours…`);
+      const transcribeMs = Math.round(performance.now() - t0);
+      status(`✓ Texte reconnu · ${(transcribeMs / 1000).toFixed(1)} s · réponse rapide…`);
 
-      const j = await api('bain_conversation_text', {
+      const r0 = performance.now();
+      const j = await api('bain_reply_only', {
         sessionId: state.sessionId,
         level: document.getElementById('level').value,
         scenario: document.getElementById('scenario').value,
         correctionMode: document.getElementById('correction').value,
-        voice: document.getElementById('voice').value,
-        speed: Number(document.getElementById('speed').value),
         text: transcript
       });
 
-      // Afficher immédiatement la réponse dès son retour.
+      // Réponse texte affichée immédiatement, sans attendre le TTS.
       addMsg('ai', j.reply || 'Très bien.', j.correction || '');
-      setBusy(false);
+      const replyMs = Math.round(performance.now() - r0);
+      status(`✓ Réponse reçue · ${(replyMs / 1000).toFixed(1)} s · préparation de la voix…`);
       mic.textContent = '🎙';
 
-      // Ne pas bloquer l'affichage de la réponse sur la mise à jour du solde.
-      billingPromise.then(() => {}).catch(() => {});
+      // Génération vocale séparée : elle ne retarde plus l'affichage du texte.
+      const voiceResult = await api('bain_tts_only', {
+        sessionId: state.sessionId,
+        text: j.reply || 'Très bien.',
+        voice: document.getElementById('voice').value,
+        speed: Number(document.getElementById('speed').value)
+      });
 
-      if (j.audioBase64) {
-        await playAI(j.audioBase64, j.audioMime || 'audio/mpeg');
+      await billingPromise;
+
+      if (voiceResult.audioBase64) {
+        await playAI(voiceResult.audioBase64, voiceResult.audioMime || 'audio/mpeg');
       } else {
         stopVoiceMeter('Compteur arrêté · maintenez le micro pour parler');
       }
+
+      setBusy(false);
+      mic.textContent = '🎙';
     } catch (e) {
       setBusy(false);
       mic.textContent = '🎙';
