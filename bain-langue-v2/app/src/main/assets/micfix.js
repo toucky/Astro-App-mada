@@ -1,7 +1,16 @@
 (() => {
   'use strict';
-  if (window.__BAIN_NATIVE_PTT_224__) return;
-  window.__BAIN_NATIVE_PTT_224__ = true;
+  if (window.__FRANCAIS_PRATIQUE_230__) return;
+  window.__FRANCAIS_PRATIQUE_230__ = true;
+
+  // Identité visuelle visible dans l'app.
+  try {
+    document.title = 'Français Pratique';
+    const brand = document.querySelector('.brand b');
+    if (brand) brand.textContent = 'Français Pratique';
+    const sub = document.querySelector('.brand small');
+    if (sub) sub.textContent = 'APP MADA · pratique orale';
+  } catch (_) {}
 
   const legacyMic = document.getElementById('micBtn');
   if (!legacyMic || typeof state === 'undefined') return;
@@ -17,10 +26,10 @@
   let lastVoiceAt = 0;
   let speaking = false;
 
-  const SAMPLE_MS = 100;
+  const SAMPLE_MS = 90;
   const VOICE_THRESHOLD = 350;
-  const VOICE_HANGOVER_MS = 360;
-  const RELEASE_TAIL_MS = 280;
+  const VOICE_HANGOVER_MS = 320;
+  const RELEASE_TAIL_MS = 220;
 
   function nativeAvailable() {
     try {
@@ -52,13 +61,15 @@
     lastVoiceAt = 0;
     speaking = false;
     if (ampTimer) clearInterval(ampTimer);
+
     ampTimer = setInterval(() => {
       if (!recording) return;
       const now = performance.now();
-      const dt = Math.max(0, Math.min(180, now - lastSampleAt));
+      const dt = Math.max(0, Math.min(160, now - lastSampleAt));
       lastSampleAt = now;
       let amp = 0;
       try { amp = Number(AndroidMic.amplitude()) || 0; } catch (_) {}
+
       if (amp >= VOICE_THRESHOLD) {
         lastVoiceAt = now;
         if (!speaking) {
@@ -69,6 +80,7 @@
         speaking = false;
         try { stopMeter('Silence · compteur arrêté'); } catch (_) {}
       }
+
       if (speaking) activeSpeechMs += dt;
     }, SAMPLE_MS);
   }
@@ -85,11 +97,21 @@
       return;
     }
 
-    stopVoiceMeter('Transcription rapide…');
+    stopVoiceMeter('⚡ Transcription…');
     setBusy(true);
     mic.textContent = '⏳';
 
+    // Le débit est mis à jour en parallèle : il ne ralentit plus l'affichage du texte.
+    const billingPromise = api('bain_speaking_charge', {
+      sessionId: state.sessionId,
+      seconds: Math.max(1, Math.min(300, Math.ceil(speechSeconds)))
+    }).then(b => {
+      syncRemaining(b.remainingSeconds);
+      return b;
+    }).catch(() => null);
+
     try {
+      const t0 = performance.now();
       const t = await api('bain_transcribe_only', {
         sessionId: state.sessionId,
         audioBase64: result.audioBase64,
@@ -99,11 +121,11 @@
       const transcript = String(t.transcript || '').trim();
       if (!transcript) throw new Error('Phrase vide');
 
-      // Afficher immédiatement ce que l'utilisateur vient de dire.
+      // Le texte est montré dès que la transcription revient, sans attendre le coach ni la voix.
       addMsg('me', transcript);
-      status('✓ Texte reconnu · préparation de la réponse…');
+      const ms = Math.round(performance.now() - t0);
+      status(`✓ Texte reconnu · ${Math.max(1, (ms / 1000)).toFixed(1)} s · réponse en cours…`);
 
-      // Le coach travaille ensuite. La transcription n'attend plus cette étape.
       const j = await api('bain_conversation_text', {
         sessionId: state.sessionId,
         level: document.getElementById('level').value,
@@ -114,20 +136,13 @@
         text: transcript
       });
 
-      // Débiter ensuite les secondes réellement parlées par l'utilisateur.
-      try {
-        const billed = await api('bain_speaking_charge', {
-          sessionId: state.sessionId,
-          seconds: Math.max(1, Math.min(300, Math.ceil(speechSeconds)))
-        });
-        syncRemaining(billed.remainingSeconds);
-      } catch (_) {
-        syncRemaining(j.remainingSeconds);
-      }
-
+      // Afficher immédiatement la réponse dès son retour.
       addMsg('ai', j.reply || 'Très bien.', j.correction || '');
       setBusy(false);
       mic.textContent = '🎙';
+
+      // Ne pas bloquer l'affichage de la réponse sur la mise à jour du solde.
+      billingPromise.then(() => {}).catch(() => {});
 
       if (j.audioBase64) {
         await playAI(j.audioBase64, j.audioMime || 'audio/mpeg');
@@ -140,6 +155,7 @@
       stopVoiceMeter();
       toast(human(e));
       try {
+        await billingPromise;
         await load(false);
         if (state.sessionId) {
           state.remaining = Number(state.wallet.remainingSeconds || state.remaining);
