@@ -1,11 +1,17 @@
 (() => {
   'use strict';
-  if (window.__BAIN_NATIVE_PTT_221__) return;
-  window.__BAIN_NATIVE_PTT_221__ = true;
+  if (window.__BAIN_NATIVE_PTT_222__) return;
+  window.__BAIN_NATIVE_PTT_222__ = true;
 
-  const mic = document.getElementById('micBtn');
+  // IMPORTANT: index.html still has legacy getUserMedia listeners attached with
+  // addEventListener(). They cannot be removed without their original callback
+  // references. Replacing the button with a clone removes every legacy listener
+  // while preserving the same id/classes/content for the rest of the UI.
+  const oldMic = document.getElementById('micBtn');
   const timer = document.getElementById('timer');
-  if (!mic || typeof state === 'undefined') return;
+  if (!oldMic || typeof state === 'undefined') return;
+  const mic = oldMic.cloneNode(true);
+  oldMic.replaceWith(mic);
 
   // The main timer must never run during silence / API waiting.
   try { clearInterval(state.timerHandle); } catch (_) {}
@@ -150,7 +156,7 @@
       return;
     }
     if (!nativeAvailable()) {
-      toast('Le module micro Android n’est pas chargé. Fermez puis rouvrez cette nouvelle version.');
+      toast('Le module micro Android n’est pas chargé. Fermez puis rouvrez cette version.');
       return;
     }
     try {
@@ -160,19 +166,24 @@
       }
       const result = parseNative(AndroidMic.start());
       if (!result || !result.ok) {
-        toast('Le micro Android n’a pas pu démarrer. Réessayez.');
+        const detail = result && result.error ? String(result.error) : 'start_failed';
+        toast('Le micro Android n’a pas pu démarrer (' + detail + ').');
         return;
       }
       recording = true;
       stopping = false;
       mic.classList.add('rec');
+      mic.classList.add('down');
       mic.textContent = '●';
       startVoiceMeter();
-    } catch (_) {
+      const statusEl = document.getElementById('statusText');
+      if (statusEl) statusEl.textContent = '🎙 Parlez en maintenant le bouton';
+    } catch (err) {
       recording = false;
       stopping = false;
       stopPreview();
       mic.classList.remove('rec');
+      mic.classList.remove('down');
       mic.textContent = '🎙';
       toast('Erreur du micro Android. Fermez puis rouvrez l’application.');
     }
@@ -180,8 +191,11 @@
 
   function endPTT(e) {
     if (e) e.preventDefault();
+    mic.classList.remove('down');
     if (!recording || stopping) return;
     stopping = true;
+    const statusEl = document.getElementById('statusText');
+    if (statusEl) statusEl.textContent = 'Compteur arrêté · envoi de votre phrase…';
 
     // Keep a very short tail after finger release so the final syllable is not cut.
     setTimeout(async () => {
@@ -192,13 +206,15 @@
         stopping = false;
         stopPreview();
         mic.classList.remove('rec');
+        mic.classList.remove('down');
         mic.textContent = '🎙';
 
         if (!result || !result.ok) {
           if (result && result.error === 'recording_too_short') {
             toast('Maintenez le micro un peu plus longtemps pendant votre phrase.');
           } else {
-            toast('Enregistrement micro impossible. Réessayez.');
+            const detail = result && result.error ? String(result.error) : 'stop_failed';
+            toast('Enregistrement micro impossible (' + detail + ').');
           }
           return;
         }
@@ -208,6 +224,7 @@
         stopping = false;
         stopPreview();
         mic.classList.remove('rec');
+        mic.classList.remove('down');
         mic.textContent = '🎙';
         try { AndroidMic.cancel(); } catch (_) {}
         toast('Erreur lors de l’envoi du message vocal.');
@@ -215,7 +232,7 @@
     }, RELEASE_TAIL_MS);
   }
 
-  // Replace the old click-to-start / click-to-stop microphone completely.
+  // Only these listeners exist now because the button was cloned above.
   mic.onclick = null;
   mic.oncontextmenu = e => { e.preventDefault(); return false; };
   mic.style.touchAction = 'none';
