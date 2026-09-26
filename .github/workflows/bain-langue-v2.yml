@@ -1,4 +1,4 @@
-name: Build Bain de Francais v2
+name: Build Francais Pratique
 
 on:
   push:
@@ -23,16 +23,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build installable test APK
+      - name: Build installable APK
         run: gradle -p bain-langue-v2 assembleDebug --stacktrace
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp bain-langue-v2/app/build/outputs/apk/debug/app-debug.apk dist/Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC.apk
-          sha256sum dist/Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC.apk > dist/SHA256.txt
+          cp bain-langue-v2/app/build/outputs/apk/debug/app-debug.apk dist/Francais-Pratique-APP-MADA-v2.3.0-SPEED.apk
+          sha256sum dist/Francais-Pratique-APP-MADA-v2.3.0-SPEED.apk > dist/SHA256.txt
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC
+          name: Francais-Pratique-APP-MADA-v2.3.0-SPEED
           path: dist/*
           if-no-files-found: error
