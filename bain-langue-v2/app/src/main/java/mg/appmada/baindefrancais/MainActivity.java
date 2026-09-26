@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-BainFrancais/2.2.4");
+        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-FrancaisPratique/2.3.0");
 
         webView.addJavascriptInterface(nativeMic, "AndroidMic");
 
@@ -157,7 +157,7 @@ public class MainActivity extends Activity {
             if (!hasPermission()) return jsonError("permission_denied", null);
             releaseRecorder();
             try {
-                audioFile = File.createTempFile("bain_voice_", ".m4a", getCacheDir());
+                audioFile = File.createTempFile("fr_pratique_", ".m4a", getCacheDir());
                 recorder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                         ? new MediaRecorder(MainActivity.this)
                         : new MediaRecorder();
@@ -165,8 +165,8 @@ public class MainActivity extends Activity {
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
                 recorder.setAudioChannels(1);
-                recorder.setAudioSamplingRate(44100);
-                recorder.setAudioEncodingBitRate(64000);
+                recorder.setAudioSamplingRate(16000);
+                recorder.setAudioEncodingBitRate(32000);
                 recorder.setOutputFile(audioFile.getAbsolutePath());
                 recorder.prepare();
                 recorder.start();
