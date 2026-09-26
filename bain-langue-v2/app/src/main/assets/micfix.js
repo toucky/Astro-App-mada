@@ -1,118 +1,92 @@
 (() => {
   'use strict';
-  if (window.__BAIN_NATIVE_PTT_222__) return;
-  window.__BAIN_NATIVE_PTT_222__ = true;
+  if (window.__BAIN_NATIVE_PTT_223__) return;
+  window.__BAIN_NATIVE_PTT_223__ = true;
 
-  // IMPORTANT: index.html still has legacy getUserMedia listeners attached with
-  // addEventListener(). They cannot be removed without their original callback
-  // references. Replacing the button with a clone removes every legacy listener
-  // while preserving the same id/classes/content for the rest of the UI.
-  const oldMic = document.getElementById('micBtn');
-  const timer = document.getElementById('timer');
-  if (!oldMic || typeof state === 'undefined') return;
-  const mic = oldMic.cloneNode(true);
-  oldMic.replaceWith(mic);
+  // index.html still owns old getUserMedia listeners. Cloning the microphone
+  // button removes those listeners completely before native PTT is attached.
+  const legacyMic = document.getElementById('micBtn');
+  if (!legacyMic || typeof state === 'undefined') return;
+  const mic = legacyMic.cloneNode(true);
+  legacyMic.replaceWith(mic);
 
-  // The main timer must never run during silence / API waiting.
-  try { clearInterval(state.timerHandle); } catch (_) {}
-  state.timerHandle = null;
-  window.tickTimer = function(){};
-
-  const oldStartSession = window.startSession;
-  if (typeof oldStartSession === 'function') {
-    window.startSession = async function(...args) {
-      const r = await oldStartSession.apply(this, args);
-      try { clearInterval(state.timerHandle); } catch (_) {}
-      state.timerHandle = null;
-      if (timer) timer.textContent = minLabel(state.sessionRemaining);
-      return r;
-    };
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) startBtn.onclick = window.startSession;
-  }
-
-  let pointerId = null;
   let recording = false;
   let stopping = false;
-  let ampTicker = null;
+  let pointerId = null;
+  let ampTimer = null;
   let activeSpeechMs = 0;
+  let lastSampleAt = 0;
   let lastVoiceAt = 0;
+  let speaking = false;
+
   const SAMPLE_MS = 100;
-  const VOICE_THRESHOLD = 650;
-  const VOICE_HANGOVER_MS = 320;
-  const RELEASE_TAIL_MS = 260;
+  const VOICE_THRESHOLD = 350;
+  const VOICE_HANGOVER_MS = 360;
+  const RELEASE_TAIL_MS = 280;
 
   function nativeAvailable() {
     try {
       return typeof AndroidMic !== 'undefined' &&
         typeof AndroidMic.start === 'function' &&
-        typeof AndroidMic.stop === 'function';
+        typeof AndroidMic.stop === 'function' &&
+        typeof AndroidMic.amplitude === 'function';
     } catch (_) {
       return false;
     }
   }
 
-  function parseNative(value) {
-    try {
-      return typeof value === 'string' ? JSON.parse(value) : value;
-    } catch (_) {
-      return { ok: false, error: 'invalid_native_response' };
+  function parseNative(v) {
+    try { return typeof v === 'string' ? JSON.parse(v) : v; }
+    catch (_) { return {ok:false,error:'invalid_native_response'}; }
+  }
+
+  function stopVoiceMeter(label='Compteur arrêté · maintenez le micro pour parler') {
+    if (ampTimer) clearInterval(ampTimer);
+    ampTimer = null;
+    speaking = false;
+    try { stopMeter(label); } catch (_) {
+      const e = document.getElementById('statusText');
+      if (e) e.textContent = label;
     }
-  }
-
-  function syncBalance(seconds) {
-    const s = Math.max(0, Number(seconds || 0));
-    state.sessionRemaining = s;
-    state.wallet.remainingSeconds = s;
-    if (timer) timer.textContent = minLabel(s);
-    const top = document.getElementById('walletTop');
-    const inline = document.getElementById('walletInline');
-    const speak = document.getElementById('speakWallet');
-    const profile = document.getElementById('profileWallet');
-    if (top) top.textContent = minLabel(s);
-    if (inline) inline.textContent = minLabel(s);
-    if (speak) speak.textContent = minLabel(s);
-    if (profile) profile.textContent = minLabel(s);
-  }
-
-  function renderPreview() {
-    const used = Math.max(0, Math.floor(activeSpeechMs / 1000));
-    const preview = Math.max(0, Number(state.sessionRemaining || 0) - used);
-    if (timer) timer.textContent = minLabel(preview);
-    const top = document.getElementById('walletTop');
-    if (top) top.textContent = minLabel(preview);
-  }
-
-  function stopPreview() {
-    clearInterval(ampTicker);
-    ampTicker = null;
-    if (timer) timer.textContent = minLabel(state.sessionRemaining);
-    const top = document.getElementById('walletTop');
-    if (top) top.textContent = minLabel(state.sessionRemaining);
   }
 
   function startVoiceMeter() {
     activeSpeechMs = 0;
+    lastSampleAt = performance.now();
     lastVoiceAt = 0;
-    clearInterval(ampTicker);
-    ampTicker = setInterval(() => {
+    speaking = false;
+    if (ampTimer) clearInterval(ampTimer);
+
+    ampTimer = setInterval(() => {
       if (!recording) return;
+      const now = performance.now();
+      const dt = Math.max(0, Math.min(180, now - lastSampleAt));
+      lastSampleAt = now;
       let amp = 0;
       try { amp = Number(AndroidMic.amplitude()) || 0; } catch (_) {}
-      const now = performance.now();
-      if (amp >= VOICE_THRESHOLD) lastVoiceAt = now;
-      if (lastVoiceAt && (now - lastVoiceAt) <= VOICE_HANGOVER_MS) {
-        activeSpeechMs += SAMPLE_MS;
+
+      if (amp >= VOICE_THRESHOLD) {
+        lastVoiceAt = now;
+        if (!speaking) {
+          speaking = true;
+          try { startMeter('🎙 Vous parlez · compteur actif'); } catch (_) {}
+        }
+      } else if (speaking && lastVoiceAt && now - lastVoiceAt > VOICE_HANGOVER_MS) {
+        speaking = false;
+        try { stopMeter('Silence · compteur arrêté'); } catch (_) {}
       }
-      renderPreview();
+
+      if (speaking) activeSpeechMs += dt;
     }, SAMPLE_MS);
   }
 
-  async function sendVoiceBase64(audioBase64, mimeType, speechSeconds) {
-    if (!audioBase64 || audioBase64.length < 200) {
-      toast('Enregistrement vide. Réessayez en maintenant le micro.');
+  async function sendNativeVoice(result, speechSeconds) {
+    if (!result.audioBase64 || String(result.audioBase64).length < 200) {
+      toast('Enregistrement vide. Réessayez.');
       return;
     }
+
+    stopVoiceMeter('Compteur arrêté · analyse de votre phrase…');
     setBusy(true);
     mic.textContent = '⏳';
     try {
@@ -123,20 +97,36 @@
         correctionMode: document.getElementById('correction').value,
         voice: document.getElementById('voice').value,
         speed: Number(document.getElementById('speed').value),
-        audioBase64,
-        mimeType: mimeType || 'audio/mp4',
-        speechSeconds: Math.max(1, Math.min(300, Math.ceil(Number(speechSeconds) || 1)))
+        audioBase64: result.audioBase64,
+        mimeType: result.mimeType || 'audio/mp4',
+        speechSeconds: Math.max(1, Math.min(300, Math.ceil(speechSeconds)))
       });
-      syncBalance(Number(j.remainingSeconds ?? state.sessionRemaining));
-      addMessage('me', j.transcript || '🎙 Message vocal');
-      addMessage('ai', j.reply || 'Très bien.', j.correction || '');
-      if (j.audioBase64) playAudio(j.audioBase64, j.audioMime || 'audio/mpeg');
-    } catch (e) {
-      if (e && e.code === 'insufficient_minutes') syncBalance(0);
-      toast(humanError(e));
-    } finally {
+
+      state.remaining = Number(j.remainingSeconds ?? state.remaining);
+      state.wallet.remainingSeconds = state.remaining;
+      syncDisplay();
+      addMsg('me', j.transcript || '🎙 Message vocal');
+      addMsg('ai', j.reply || 'Très bien.', j.correction || '');
+
       setBusy(false);
       mic.textContent = '🎙';
+      if (j.audioBase64) {
+        await playAI(j.audioBase64, j.audioMime || 'audio/mpeg');
+      } else {
+        stopVoiceMeter('Compteur arrêté · maintenez le micro pour parler');
+      }
+    } catch (e) {
+      setBusy(false);
+      mic.textContent = '🎙';
+      stopVoiceMeter();
+      toast(human(e));
+      try {
+        await load(false);
+        if (state.sessionId) {
+          state.remaining = Number(state.wallet.remainingSeconds || state.remaining);
+          syncDisplay();
+        }
+      } catch (_) {}
     }
   }
 
@@ -146,46 +136,35 @@
       pointerId = e.pointerId ?? null;
       try { if (pointerId !== null) mic.setPointerCapture(pointerId); } catch (_) {}
     }
-    if (!state.sessionId) {
-      toast('Démarrez d’abord la conversation.');
-      return;
-    }
+    if (!state.sessionId) return toast('Démarrez d’abord la conversation.');
     if (state.busy || recording || stopping) return;
-    if (Number(state.sessionRemaining || 0) <= 0) {
-      toast('Votre temps est terminé.');
-      return;
-    }
-    if (!nativeAvailable()) {
-      toast('Le module micro Android n’est pas chargé. Fermez puis rouvrez cette version.');
-      return;
-    }
+    if (Number(state.remaining || 0) <= 0) return toast('Votre forfait est terminé.');
+    if (!nativeAvailable()) return toast('Module micro Android non chargé. Fermez puis rouvrez cette version.');
+
     try {
       if (typeof AndroidMic.hasPermission === 'function' && !AndroidMic.hasPermission()) {
-        toast('Autorisation microphone refusée dans Android.');
-        return;
+        return toast('Autorisation microphone refusée dans Android.');
       }
-      const result = parseNative(AndroidMic.start());
-      if (!result || !result.ok) {
-        const detail = result && result.error ? String(result.error) : 'start_failed';
-        toast('Le micro Android n’a pas pu démarrer (' + detail + ').');
-        return;
+
+      const r = parseNative(AndroidMic.start());
+      if (!r || !r.ok) {
+        const detail = r && r.error ? String(r.error) : 'start_failed';
+        return toast('Démarrage micro impossible : ' + detail);
       }
+
       recording = true;
       stopping = false;
-      mic.classList.add('rec');
       mic.classList.add('down');
       mic.textContent = '●';
+      status('Micro ouvert · parlez en maintenant le bouton');
       startVoiceMeter();
-      const statusEl = document.getElementById('statusText');
-      if (statusEl) statusEl.textContent = '🎙 Parlez en maintenant le bouton';
     } catch (err) {
       recording = false;
       stopping = false;
-      stopPreview();
-      mic.classList.remove('rec');
       mic.classList.remove('down');
       mic.textContent = '🎙';
-      toast('Erreur du micro Android. Fermez puis rouvrez l’application.');
+      stopVoiceMeter();
+      toast('Erreur du micro Android.');
     }
   }
 
@@ -194,53 +173,54 @@
     mic.classList.remove('down');
     if (!recording || stopping) return;
     stopping = true;
-    const statusEl = document.getElementById('statusText');
-    if (statusEl) statusEl.textContent = 'Compteur arrêté · envoi de votre phrase…';
+    status('Fin de phrase…');
 
-    // Keep a very short tail after finger release so the final syllable is not cut.
+    // Keep a short recording tail after finger release to preserve the final syllable.
     setTimeout(async () => {
+      const voiceMs = activeSpeechMs;
       try {
-        const speechSeconds = Math.max(1, Math.ceil(activeSpeechMs / 1000));
-        const result = parseNative(AndroidMic.stop());
+        const r = parseNative(AndroidMic.stop());
         recording = false;
         stopping = false;
-        stopPreview();
-        mic.classList.remove('rec');
-        mic.classList.remove('down');
+        stopVoiceMeter('Compteur arrêté · envoi de votre phrase…');
         mic.textContent = '🎙';
 
-        if (!result || !result.ok) {
-          if (result && result.error === 'recording_too_short') {
-            toast('Maintenez le micro un peu plus longtemps pendant votre phrase.');
-          } else {
-            const detail = result && result.error ? String(result.error) : 'stop_failed';
-            toast('Enregistrement micro impossible (' + detail + ').');
-          }
+        if (!r || !r.ok) {
+          const detail = r && r.error ? String(r.error) : 'stop_failed';
+          if (detail === 'recording_too_short') toast('Maintenez le micro un peu plus longtemps.');
+          else toast('Enregistrement impossible : ' + detail);
           return;
         }
-        await sendVoiceBase64(result.audioBase64, result.mimeType || 'audio/mp4', speechSeconds);
+
+        // Do not consume credit if no real voice was detected.
+        if (voiceMs < 180) {
+          toast('Aucune voix détectée. Maintenez le micro et parlez clairement.');
+          status('Compteur arrêté · maintenez le micro pour parler');
+          return;
+        }
+
+        await sendNativeVoice(r, voiceMs / 1000);
       } catch (_) {
         recording = false;
         stopping = false;
-        stopPreview();
-        mic.classList.remove('rec');
-        mic.classList.remove('down');
         mic.textContent = '🎙';
+        stopVoiceMeter();
         try { AndroidMic.cancel(); } catch (_) {}
-        toast('Erreur lors de l’envoi du message vocal.');
+        toast('Erreur lors de l’envoi vocal.');
       }
     }, RELEASE_TAIL_MS);
   }
 
-  // Only these listeners exist now because the button was cloned above.
+  // The cloned button has no legacy WebView listeners. Only native PTT remains.
   mic.onclick = null;
-  mic.oncontextmenu = e => { e.preventDefault(); return false; };
+  mic.oncontextmenu = ev => { ev.preventDefault(); return false; };
   mic.style.touchAction = 'none';
-  mic.addEventListener('pointerdown', beginPTT, { passive: false });
-  mic.addEventListener('pointerup', endPTT, { passive: false });
-  mic.addEventListener('pointercancel', endPTT, { passive: false });
-  mic.addEventListener('lostpointercapture', () => { if (recording && !stopping) endPTT(); });
+  mic.addEventListener('pointerdown', beginPTT, {passive:false});
+  mic.addEventListener('pointerup', endPTT, {passive:false});
+  mic.addEventListener('pointercancel', endPTT, {passive:false});
+  mic.addEventListener('lostpointercapture', () => {
+    if (recording && !stopping) endPTT();
+  });
 
-  const liveSub = document.getElementById('liveSub');
-  if (liveSub) liveSub.title = 'Maintenez le micro pendant toute votre phrase, puis relâchez pour envoyer';
+  status('Compteur arrêté · maintenez le micro pour parler');
 })();
