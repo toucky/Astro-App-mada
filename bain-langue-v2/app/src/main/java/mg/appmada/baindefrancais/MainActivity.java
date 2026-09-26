@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-FrancaisPratique/2.3.0");
+        s.setUserAgentString(s.getUserAgentString() + " APP-MADA-FrancaisPratique/2.3.1");
 
         webView.addJavascriptInterface(nativeMic, "AndroidMic");
 
@@ -165,8 +165,9 @@ public class MainActivity extends Activity {
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
                 recorder.setAudioChannels(1);
-                recorder.setAudioSamplingRate(16000);
-                recorder.setAudioEncodingBitRate(32000);
+                // Proven reliable on the target Redmi/Android 13 while remaining compact enough for short speech turns.
+                recorder.setAudioSamplingRate(44100);
+                recorder.setAudioEncodingBitRate(64000);
                 recorder.setOutputFile(audioFile.getAbsolutePath());
                 recorder.prepare();
                 recorder.start();
