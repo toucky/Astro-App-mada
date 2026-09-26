@@ -28,11 +28,11 @@ jobs:
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp bain-langue-v2/app/build/outputs/apk/debug/app-debug.apk dist/Bain-de-Francais-APP-MADA-v2.0-TEST.apk
-          sha256sum dist/Bain-de-Francais-APP-MADA-v2.0-TEST.apk > dist/SHA256.txt
+          cp bain-langue-v2/app/build/outputs/apk/debug/app-debug.apk dist/Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC.apk
+          sha256sum dist/Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC.apk > dist/SHA256.txt
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bain-de-Francais-APP-MADA-v2.0-TEST
+          name: Bain-de-Francais-APP-MADA-v2.2.1-NATIVE-MIC
           path: dist/*
           if-no-files-found: error
