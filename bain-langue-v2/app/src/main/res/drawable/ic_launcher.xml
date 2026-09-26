@@ -1,8 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#4361EE" android:pathData="M18,8 L90,8 Q100,8 100,18 L100,90 Q100,100 90,100 L18,100 Q8,100 8,90 L8,18 Q8,8 18,8Z"/>
-    <path android:fillColor="#6C8CFF" android:pathData="M24,18 L84,18 Q93,18 93,27 L93,69 Q93,78 84,78 L61,78 L48,91 L48,78 L24,78 Q15,78 15,69 L15,27 Q15,18 24,18Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M31,35 L77,35 Q82,35 82,40 Q82,45 77,45 L31,45 Q26,45 26,40 Q26,35 31,35Z M31,53 L65,53 Q70,53 70,58 Q70,63 65,63 L31,63 Q26,63 26,58 Q26,53 31,53Z"/>
-    <path android:fillColor="#FFD166" android:pathData="M74,56 A13,13 0,1 1,73.9 56Z"/>
-    <path android:fillColor="#263159" android:pathData="M70,51 L77,56 L70,61Z"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <!-- Fond bleu/violet inspiré de l'icône validée -->
+    <path android:fillColor="#244BFF" android:pathData="M16,6 L92,6 Q102,6 102,16 L102,92 Q102,102 92,102 L16,102 Q6,102 6,92 L6,16 Q6,6 16,6Z"/>
+    <path android:fillColor="#4E37D9" android:fillAlpha="0.55" android:pathData="M55,6 L92,6 Q102,6 102,16 L102,92 Q102,102 92,102 L55,102Z"/>
+
+    <!-- Ondes sonores -->
+    <path android:fillColor="#62D9FF" android:pathData="M15,43 Q12,43 12,46 L12,62 Q12,65 15,65 Q18,65 18,62 L18,46 Q18,43 15,43Z M24,35 Q21,35 21,38 L21,70 Q21,73 24,73 Q27,73 27,70 L27,38 Q27,35 24,35Z M84,39 Q81,39 81,42 L81,68 Q81,71 84,71 Q87,71 87,68 L87,42 Q87,39 84,39Z M93,46 Q90,46 90,49 L90,61 Q90,64 93,64 Q96,64 96,61 L96,49 Q96,46 93,46Z"/>
+
+    <!-- Micro tricolore -->
+    <path android:fillColor="#FFFFFF" android:pathData="M38,20 Q30,20 30,28 L30,54 Q30,62 38,62 L54,62 Q62,62 62,54 L62,28 Q62,20 54,20Z"/>
+    <path android:fillColor="#1769E8" android:pathData="M38,20 Q30,20 30,28 L30,54 Q30,62 38,62 L41,62 L41,20Z"/>
+    <path android:fillColor="#FF4D5A" android:pathData="M51,20 L54,20 Q62,20 62,28 L62,54 Q62,62 54,62 L51,62Z"/>
+
+    <!-- Support micro -->
+    <path android:fillColor="#FFFFFF" android:pathData="M25,47 L25,57 Q25,72 40,76 L43,77 L43,84 L35,84 Q31,84 31,88 Q31,92 35,92 L59,92 Q63,92 63,88 Q63,84 59,84 L51,84 L51,77 L54,76 Q69,72 69,57 L69,47 L63,47 L63,57 Q63,68 52,71 Q47,73 42,71 Q31,68 31,57 L31,47Z"/>
+
+    <!-- Bulle de parole -->
+    <path android:fillColor="#FFFFFF" android:pathData="M65,18 Q65,12 71,12 L94,12 Q100,12 100,18 L100,36 Q100,42 94,42 L82,42 L74,49 L75,42 L71,42 Q65,42 65,36Z"/>
+    <path android:fillColor="#1769E8" android:pathData="M72,22 L79,22 L79,27 L74,27 L74,30 L79,30 L79,35 L72,35Z"/>
+    <path android:fillColor="#FF4D5A" android:pathData="M83,22 L89,22 Q94,22 94,28 Q94,34 89,34 L86,34 L86,38 L83,38Z M86,25 L86,31 L89,31 Q91,31 91,28 Q91,25 89,25Z"/>
+
+    <!-- Petit accent oral -->
+    <path android:fillColor="#FFB13B" android:pathData="M95,10 L99,7 L102,10 L98,14Z M100,17 L104,16 L105,20 L101,21Z"/>
 </vector>
