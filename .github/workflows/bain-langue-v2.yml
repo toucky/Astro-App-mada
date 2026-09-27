@@ -8,6 +8,9 @@ on:
       - '.github/workflows/bain-langue-v2.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,9 +33,18 @@ jobs:
           mkdir -p dist
           cp bain-langue-v2/app/build/outputs/apk/debug/app-debug.apk dist/Francais-Pratique-APP-MADA-v2.3.1-RELIABLE-SPEED.apk
           sha256sum dist/Francais-Pratique-APP-MADA-v2.3.1-RELIABLE-SPEED.apk > dist/SHA256.txt
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Francais-Pratique-APP-MADA-v2.3.1-RELIABLE-SPEED
           path: dist/*
           if-no-files-found: error
+      - name: Publish public APK for APP MADA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='francais-pratique-v2.3.1-site'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Français Pratique v2.3.1' --notes 'APK officiel Français Pratique pour le catalogue APP MADA.'
+          fi
+          gh release upload "$TAG" dist/Francais-Pratique-APP-MADA-v2.3.1-RELIABLE-SPEED.apk dist/SHA256.txt --clobber
